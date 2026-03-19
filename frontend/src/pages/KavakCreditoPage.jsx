@@ -79,6 +79,98 @@ function fmtNum(v) {
   return n.toLocaleString('pt-BR')
 }
 
+// ── Daily Spend Table (USD) ─────────────────────────────────────────────────────
+function fmtUSD(v) {
+  if (!v && v !== 0) return '—'
+  return '$' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+}
+
+function DailySpendTable({ campData }) {
+  if (!campData) return null
+  const { rows, dates } = campData
+  if (!rows || !dates || dates.length === 0) return null
+
+  const metaAlfa   = rows.find(r => r.channel === 'Facebook Ads' && !r.show_leads)
+  const metaBeta   = rows.find(r => r.channel === 'Facebook Ads' && r.show_leads)
+  const googleAlfa = rows.find(r => r.channel !== 'Facebook Ads')
+
+  const campaigns = [
+    { key: 'meta_alfa',   label: 'Meta Alfa',              row: metaAlfa,   color: '#1877F2' },
+    { key: 'meta_beta',   label: 'Meta Beta',              row: metaBeta,   color: '#60A5FA' },
+    { key: 'google_alfa', label: 'Google Alfa (BR Brand)', row: googleAlfa, color: '#4285F4' },
+  ].filter(c => c.row)
+
+  const visibleDates = dates.slice(-14)
+
+  const dailyTotal = {}
+  for (const d of visibleDates) {
+    dailyTotal[d] = campaigns.reduce((sum, c) => sum + (c.row?.daily?.[d]?.spend || 0), 0)
+  }
+  const grandTotal = campaigns.reduce((sum, c) => sum + (c.row?.total?.spend || 0), 0)
+
+  return (
+    <div className="bg-[#1E293B] border border-[#334155] rounded-2xl overflow-hidden">
+      <div className="px-5 py-3 border-b border-[#334155] flex items-center gap-2">
+        <span className="w-2 h-2 rounded-full bg-indigo-400" />
+        <span className="text-white font-semibold text-sm">Daily Spend – USD</span>
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#334155] text-[#94A3B8] uppercase tracking-wide">
+          Meta Alfa · Meta Beta · Google Alfa
+        </span>
+        <span className="ml-auto text-[#475569] text-xs">
+          {visibleDates[0]?.slice(5)} → {visibleDates[visibleDates.length - 1]?.slice(5)}
+        </span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="bg-[#0F172A]">
+              <th className="text-left px-4 py-3 text-[#64748B] font-semibold whitespace-nowrap" style={{ minWidth: 180 }}>Campaña</th>
+              {visibleDates.map(d => (
+                <th key={d} className="text-right px-2 py-3 text-[#64748B] font-semibold whitespace-nowrap">{d.slice(5)}</th>
+              ))}
+              <th className="text-right px-4 py-3 text-indigo-400 font-semibold whitespace-nowrap">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {campaigns.map(({ key, label, row, color }) => (
+              <tr key={key} className="border-t border-[#0F172A] hover:bg-[#334155]/20 transition-colors">
+                <td className="px-4 py-2.5 whitespace-nowrap">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                    <span className="text-[#CBD5E1] font-medium">{label}</span>
+                  </div>
+                </td>
+                {visibleDates.map(d => {
+                  const v = row.daily?.[d]?.spend
+                  return (
+                    <td key={d} className="text-right px-2 py-2.5 font-mono text-[#94A3B8] whitespace-nowrap">
+                      {v > 0 ? fmtUSD(v) : <span className="text-[#2d3f55]">—</span>}
+                    </td>
+                  )
+                })}
+                <td className="text-right px-4 py-2.5 font-mono font-bold text-white whitespace-nowrap">
+                  {fmtUSD(row.total?.spend)}
+                </td>
+              </tr>
+            ))}
+            <tr className="border-t-2 border-[#334155] bg-[#0A1628]">
+              <td className="px-4 py-3 text-indigo-400 font-bold whitespace-nowrap pl-10">Total</td>
+              {visibleDates.map(d => (
+                <td key={d} className="text-right px-2 py-3 font-mono font-bold text-indigo-400 whitespace-nowrap">
+                  {dailyTotal[d] > 0 ? fmtUSD(dailyTotal[d]) : <span className="text-[#2d3f55]">—</span>}
+                </td>
+              ))}
+              <td className="text-right px-4 py-3 font-mono font-bold text-indigo-400 whitespace-nowrap">
+                {fmtUSD(grandTotal)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 // ── Channel badge config ────────────────────────────────────────────────────────
 const CH_BADGE = {
   'Facebook Ads': { color: '#1877F2', label: 'Meta Ads' },
@@ -86,7 +178,7 @@ const CH_BADGE = {
 }
 
 // ── Campaign performance section ────────────────────────────────────────────────
-function CampaignSection({ dateFrom, dateTo }) {
+function CampaignSection({ dateFrom, dateTo, onDataLoaded }) {
   const [campData, setCampData] = useState(null)
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState('')
@@ -98,6 +190,7 @@ function CampaignSection({ dateFrom, dateTo }) {
     try {
       const res = await fetchCreditoCampaigns({ date_from: dateFrom, date_to: dateTo })
       setCampData(res)
+      if (onDataLoaded) onDataLoaded(res)
     } catch (e) {
       setError(e.message || 'Error al cargar campañas')
     } finally {
@@ -337,6 +430,7 @@ export default function KavakCreditoPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [lastUpdated, setLastUpdated] = useState(null)
+  const [campData, setCampData] = useState(null)
 
   const load = useCallback(async (from, to) => {
     setLoading(true)
@@ -600,8 +694,11 @@ export default function KavakCreditoPage() {
           {/* ── Divider ── */}
           <div className="border-t border-[#334155]" />
 
+          {/* ── Daily Spend USD ── */}
+          <DailySpendTable campData={campData} />
+
           {/* ── Campaign Performance ── */}
-          <CampaignSection dateFrom={dateFrom} dateTo={dateTo} />
+          <CampaignSection dateFrom={dateFrom} dateTo={dateTo} onDataLoaded={setCampData} />
 
         </div>
       </main>
