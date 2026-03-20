@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/kavak-dashboard/:path*", "destination": "/:path*" }
+  ]
+}
