@@ -89,7 +89,7 @@ export default function ChartsPage() {
               </div>
             </div>
             <div className="flex bg-[#0F172A] border border-[#334155] rounded-xl p-1 gap-1">
-              {['Purchase', 'Sale'].map(ct => (
+              {[{ ct: 'Purchase', label: 'Supply' }, { ct: 'Sale', label: 'Sales' }].map(({ ct, label }) => (
                 <button
                   key={ct}
                   onClick={() => setCampaignType(ct)}
@@ -100,7 +100,7 @@ export default function ChartsPage() {
                       : { color: '#94A3B8' }
                   }
                 >
-                  {ct}
+                  {label}
                 </button>
               ))}
             </div>
@@ -238,6 +238,52 @@ export default function ChartsPage() {
                   </LineChart>
                 </ResponsiveContainer>
               </ChartCard>
+
+              {/* Chart 4: CPQL by Channel (Sale only) */}
+              {campaignType === 'Sale' && data.cpql && data.cpql.length > 0 && (
+                <ChartCard
+                  title="CPQL by Channel"
+                  subtitle="Cost per qualified lead over last 6 weeks"
+                >
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={data.cpql} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                      <XAxis
+                        dataKey="week"
+                        tick={{ fill: '#94A3B8', fontSize: 12 }}
+                        axisLine={false} tickLine={false}
+                      />
+                      <YAxis
+                        tickFormatter={v => '$' + Math.round(v)}
+                        tick={{ fill: '#94A3B8', fontSize: 11 }}
+                        axisLine={false} tickLine={false}
+                      />
+                      <Tooltip
+                        {...tooltipStyle}
+                        formatter={(v, name) => [
+                          v !== null && v !== undefined ? '$' + v.toFixed(2) : '—',
+                          CHANNEL_SHORT[name] || name,
+                        ]}
+                      />
+                      <Legend
+                        formatter={n => <span style={{ color: '#94A3B8', fontSize: 12 }}>{CHANNEL_SHORT[n] || n}</span>}
+                      />
+                      {CHANNELS.map(ch => (
+                        <Line
+                          key={ch}
+                          type="monotone"
+                          dataKey={ch}
+                          stroke={CHANNEL_COLORS[ch]}
+                          strokeWidth={2}
+                          dot={{ r: 3, fill: CHANNEL_COLORS[ch] }}
+                          activeDot={{ r: 5 }}
+                          connectNulls={false}
+                        />
+                      ))}
+                    </LineChart>
+                  </ResponsiveContainer>
+                </ChartCard>
+              )}
 
             </div>
           )}
